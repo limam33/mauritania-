@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Amiri:wght@400;700&display=swap');
+
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+  --font-arabic: "Amiri", serif;
+  
+  --color-paper: #f5f2ed;
+  --color-ink: #1a1a1a;
+  --color-accent: #5A5A40; /* Olive */
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans;
+    direction: rtl;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+  
+  .arabic-text {
+    @apply font-arabic;
+  }
+}
+
+/* Custom styles for the luxury feel */
+.oval-mask {
+  border-radius: 50% / 30%;
+}
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.1);
+}
+
+.nav-item {
+  padding: 16px 24px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-left: 1px solid rgba(26, 26, 26, 0.1);
+}
+
+.nav-item:last-child {
+  border-left: none;
+}
+

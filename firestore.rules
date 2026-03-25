@@ -1,0 +1,131 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required) - User ID
+//   - email: string (required, email format) - User email
+//   - displayName: string (optional) - User display name
+//   - photoURL: string (optional) - User photo URL
+//   - role: string (required, enum: ['admin', 'marketer', 'buyer']) - User role
+//   - phone: string (optional) - User phone number
+//   - whatsapp: string (optional) - User WhatsApp number
+//   - createdAt: timestamp (optional) - Creation timestamp
+//
+// Collection: properties
+// Document ID: {propertyId}
+// Fields:
+//   - id: string (optional) - Property ID
+//   - title: string (required) - Property title
+//   - description: string (optional) - Property description
+//   - price: number (required) - Property price
+//   - type: string (required, enum: ['land', 'house', 'apartment', 'commercial']) - Property type
+//   - category: string (required, enum: ['sale', 'rent']) - Property category
+//   - location: string (optional) - City or region
+//   - neighborhood: string (optional) - Neighborhood
+//   - images: list (optional) - List of image URLs
+//   - ownerId: string (required) - User ID of the owner/creator
+//   - isVerified: boolean (optional) - Verification status
+//   - features: list (optional) - List of property features
+//   - createdAt: timestamp (optional) - Creation timestamp
+//   - updatedAt: timestamp (optional) - Update timestamp
+//
+// Collection: commissions
+// Document ID: {commissionId}
+// Fields:
+//   - id: string (optional) - Commission ID
+//   - propertyId: string (required) - Property ID
+//   - marketerId: string (required) - User ID of the marketer
+//   - amount: number (required) - Commission amount
+//   - status: string (required, enum: ['pending', 'paid']) - Commission status
+//   - createdAt: timestamp (optional) - Creation timestamp
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (request.auth.token.email == "medimam128@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'marketer', 'buyer'];
+    }
+
+    function isValidProperty(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.price is number && data.price >= 0 &&
+             data.type in ['land', 'house', 'apartment', 'commercial'] &&
+             data.category in ['sale', 'rent'] &&
+             data.ownerId is string;
+    }
+
+    function isValidCommission(data) {
+      return data.propertyId is string &&
+             data.marketerId is string &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['pending', 'paid'];
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Properties collection
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidProperty(request.resource.data) && request.resource.data.ownerId == request.auth.uid;
+      allow update: if (isOwner(resource.data.ownerId) || isAdmin()) && isValidProperty(request.resource.data) && (request.resource.data.isVerified == resource.data.isVerified || isAdmin());
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+    }
+
+    // Commissions collection
+    match /commissions/{commissionId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.marketerId) || isAdmin());
+      allow create: if isAuthenticated() && isValidCommission(request.resource.data) && (request.resource.data.marketerId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
